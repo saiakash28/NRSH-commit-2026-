@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import Profile from './pages/Profile';
 import Saved from './pages/Saved';
+import Notifications from './pages/Notifications';
 
 // Simple protected route wrapper
 const ProtectedRoute = ({ children }) => {
@@ -54,6 +55,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Saved />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/notifications" 
+          element={
+            <ProtectedRoute>
+              <Notifications />
             </ProtectedRoute>
           } 
         />

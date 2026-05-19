@@ -7,14 +7,23 @@ export default function Register() {
 
   const handleRegister = (e) => {
     e.preventDefault();
-    // In a real app, you would create the user account here
+    const elements = e.target.elements;
+    const name = elements[0].value;
+    const email = elements[1].value;
+    const branch = elements[2].value;
+    const year = elements[3].value;
+
+    localStorage.setItem('user_name', name || 'Jane Doe');
+    localStorage.setItem('user_email', email || 'student@university.edu');
+    localStorage.setItem('user_branch', branch || 'CSE');
+    localStorage.setItem('user_year', year || '4');
     localStorage.setItem('user_registered', 'true');
     localStorage.setItem('user_authenticated', 'true');
     navigate('/');
   };
 
   return (
-    <div className="auth-container">
+    <div className="auth-container animate-page-in">
       <div className="glass-panel auth-card animate-fade-in">
         <div className="auth-header">
           <div className="auth-logo">

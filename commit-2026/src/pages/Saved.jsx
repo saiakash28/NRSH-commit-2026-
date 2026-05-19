@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bookmark, ArrowLeft, Clock, CheckCircle, MapPin } from 'lucide-react';
+import { Bookmark, ArrowLeft, Clock, CheckCircle, MapPin, BellRing, Calendar } from 'lucide-react';
 import { MOCK_TIPS } from './Home';
 import '../App.css';
 
@@ -14,10 +14,50 @@ export default function Saved() {
     localStorage.setItem('saved_posts', JSON.stringify(next));
   };
 
+  const [reminders, setReminders] = useState(() => JSON.parse(localStorage.getItem('post_reminders_map') || '{}'));
+  const [activePickerId, setActivePickerId] = useState(null);
+
+  const handleSaveReminder = (id, dateTimeStr) => {
+    setReminders(prev => {
+      const next = { ...prev, [id]: dateTimeStr };
+      localStorage.setItem('post_reminders_map', JSON.stringify(next));
+      return next;
+    });
+
+    const userEmail = localStorage.getItem('user_email') || 'student@university.edu';
+    const formatted = formatDateTime(dateTimeStr);
+    
+    alert(`📧 Email Scheduled Successfully!\n\nWe have scheduled a reminder email for this post. It will be sent to:\n➡️ ${userEmail}\n\nScheduled Time: ${formatted}`);
+
+    setActivePickerId(null);
+  };
+
+  const handleRemoveReminder = (id) => {
+    setReminders(prev => {
+      const next = { ...prev };
+      delete next[id];
+      localStorage.setItem('post_reminders_map', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const formatDateTime = (dateTimeStr) => {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   const savedTips = MOCK_TIPS.filter(tip => savedPostIds.includes(tip.id));
 
   return (
-    <div className="app-container" style={{ alignItems: 'center', paddingTop: '60px' }}>
+    <div className="app-container animate-page-in" style={{ alignItems: 'center', paddingTop: '60px' }}>
       <button 
         className="btn-secondary" 
         style={{ position: 'absolute', top: '24px', left: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}
@@ -79,9 +119,6 @@ export default function Saved() {
                 </div>
 
                 <div className="tip-actions">
-                  <button className="action-btn upvote">
-                    ▲ {tip.upvotes}
-                  </button>
                   <button 
                     className="action-btn"
                     onClick={() => handleUnsave(tip.id)}
@@ -89,7 +126,75 @@ export default function Saved() {
                   >
                     <Bookmark size={16} fill="currentColor" /> Saved
                   </button>
+                  <button 
+                    className="action-btn"
+                    onClick={() => {
+                      if (reminders[tip.id]) {
+                        handleRemoveReminder(tip.id);
+                      } else {
+                        setActivePickerId(activePickerId === tip.id ? null : tip.id);
+                      }
+                    }}
+                    style={{ color: reminders[tip.id] ? 'var(--urgency-med)' : 'inherit', display: 'flex', gap: '6px', alignItems: 'center' }}
+                  >
+                    <BellRing size={16} fill={reminders[tip.id] ? 'currentColor' : 'none'} /> {reminders[tip.id] ? 'Reminder Set' : 'Set Reminder'}
+                  </button>
                 </div>
+
+                {reminders[tip.id] && (
+                  <div className="animate-slide-down" style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--urgency-med)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                    <span>🔔 Reminder Scheduled: {formatDateTime(reminders[tip.id])}</span>
+                  </div>
+                )}
+
+                {activePickerId === tip.id && (
+                  <div className="glass-panel animate-slide-down" style={{ marginTop: '12px', padding: '14px', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Set Reminder:</span>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <Calendar size={14} style={{ color: 'var(--primary-accent)' }} />
+                      <input 
+                        type="date" 
+                        id={`date-${tip.id}`}
+                        className="glass-input" 
+                        style={{ border: 'none', background: 'none', padding: 0, fontSize: '0.85rem', color: 'var(--text-main)', outline: 'none' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <Clock size={14} style={{ color: 'var(--primary-accent)' }} />
+                      <input 
+                        type="time" 
+                        id={`time-${tip.id}`}
+                        className="glass-input" 
+                        style={{ border: 'none', background: 'none', padding: 0, fontSize: '0.85rem', color: 'var(--text-main)', outline: 'none' }}
+                      />
+                    </div>
+
+                    <button 
+                      className="btn-primary" 
+                      style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                      onClick={() => {
+                        const dateVal = document.getElementById(`date-${tip.id}`).value;
+                        const timeVal = document.getElementById(`time-${tip.id}`).value;
+                        if (dateVal && timeVal) {
+                          handleSaveReminder(tip.id, `${dateVal}T${timeVal}`);
+                        } else {
+                          alert('Please select both Date and Time.');
+                        }
+                      }}
+                    >
+                      Set
+                    </button>
+                    <button 
+                      className="btn-secondary" 
+                      style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                      onClick={() => setActivePickerId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>

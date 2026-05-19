@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Bell, Search, GraduationCap, CheckCircle, Clock, MapPin, Bookmark, LogOut, MessageSquare, Trash2 } from 'lucide-react'
+import { Bell, Search, GraduationCap, CheckCircle, Clock, MapPin, Bookmark, LogOut, MessageSquare, Trash2, BellRing, Calendar } from 'lucide-react'
 import '../App.css'
 
 // Mock Data
@@ -60,6 +60,80 @@ export const MOCK_TIPS = [
     outdatedCount: 12,
     misleadingCount: 8,
     comments: []
+  },
+  {
+    id: 4,
+    category: 'Campus Life',
+    title: 'Free dinner and study spaces at the Student Union tonight!',
+    content: 'The Student Union is hosting an late-night study jam tonight from 8 PM to midnight. They have free pizza, coffee, and quiet study areas. Perfect if your dorm is too noisy!',
+    urgency: 'low',
+    deadline: 'Tonight: 8 PM',
+    tags: ['#CampusLife', '#FreeFood', '#StudyJam'],
+    upvotes: 112,
+    verified: true,
+    author: 'Sophomore Peer Leader',
+    credibilityScore: 89,
+    confirmedCount: 19,
+    outdatedCount: 0,
+    misleadingCount: 0,
+    comments: [
+      { id: 1, author: 'Freshie_01', text: 'Is there a vegetarian option?' }
+    ]
+  },
+  {
+    id: 5,
+    category: 'Club',
+    title: 'Robotics Club info session and project showcase',
+    content: 'Looking to join a tech club? The Robotics Club is having an info session in Room 302. No prior coding experience required—they train you from scratch. Plus, you get to work on actual competition bots!',
+    urgency: 'med',
+    deadline: 'Session: Oct 20',
+    tags: ['#Clubs', '#Robotics', '#Tech'],
+    upvotes: 95,
+    verified: true,
+    author: 'Robotics Lead',
+    credibilityScore: 95,
+    confirmedCount: 15,
+    outdatedCount: 1,
+    misleadingCount: 0,
+    comments: [
+      { id: 1, author: 'Alex_ECE', text: 'Can freshman join the competition team right away?' }
+    ]
+  },
+  {
+    id: 6,
+    category: 'Placement',
+    title: 'Mock Interviews with Goldman Sachs Alumni next week!',
+    content: 'Career services just launched the registration portal for mock interviews with Goldman Sachs and JPMorgan alumni. Slots are super limited, so register on Handshake today. They give brilliant resume feedback!',
+    urgency: 'high',
+    deadline: 'Register by Oct 18',
+    tags: ['#Finance', '#Placement', '#MockInterviews'],
+    upvotes: 310,
+    verified: true,
+    author: 'Placement Coordinator',
+    credibilityScore: 98,
+    confirmedCount: 34,
+    outdatedCount: 0,
+    misleadingCount: 0,
+    comments: [
+      { id: 1, author: 'Jane Doe (You)', text: 'Just registered! The slots are filling up fast!' }
+    ]
+  },
+  {
+    id: 7,
+    category: 'Research',
+    title: 'Undergrad Research Positions in AI Lab (Prof. Lee)',
+    content: 'Prof. Lee is looking for 2 undergraduate research assistants to help with data cleaning and model training in the NLP lab. Paid position or course credit. Send your resume and transcript to his email.',
+    urgency: 'high',
+    deadline: 'Apply by Oct 25',
+    tags: ['#Research', '#AI', '#NLP'],
+    upvotes: 142,
+    verified: false,
+    author: 'PhD Assistant (NLP Lab)',
+    credibilityScore: 78,
+    confirmedCount: 11,
+    outdatedCount: 2,
+    misleadingCount: 1,
+    comments: []
   }
 ];
 
@@ -68,6 +142,8 @@ export default function Home() {
   const [tips, setTips] = useState(MOCK_TIPS);
   const [savedPosts, setSavedPosts] = useState(() => JSON.parse(localStorage.getItem('saved_posts') || '[]'));
   const [expandedComments, setExpandedComments] = useState({});
+  const [reminders, setReminders] = useState(() => JSON.parse(localStorage.getItem('post_reminders_map') || '{}'));
+  const [activePickerId, setActivePickerId] = useState(null);
   const navigate = useNavigate();
   const { categoryId, urgencyId } = useParams();
   const activeCategory = categoryId ? categoryId.toLowerCase() : 'all';
@@ -83,6 +159,43 @@ export default function Home() {
       const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
       localStorage.setItem('saved_posts', JSON.stringify(next));
       return next;
+    });
+  };
+
+  const handleSaveReminder = (id, dateTimeStr) => {
+    setReminders(prev => {
+      const next = { ...prev, [id]: dateTimeStr };
+      localStorage.setItem('post_reminders_map', JSON.stringify(next));
+      return next;
+    });
+
+    const userEmail = localStorage.getItem('user_email') || 'student@university.edu';
+    const formatted = formatDateTime(dateTimeStr);
+    
+    alert(`📧 Email Scheduled Successfully!\n\nWe have scheduled a reminder email for this post. It will be sent to:\n➡️ ${userEmail}\n\nScheduled Time: ${formatted}`);
+
+    setActivePickerId(null);
+  };
+
+  const handleRemoveReminder = (id) => {
+    setReminders(prev => {
+      const next = { ...prev };
+      delete next[id];
+      localStorage.setItem('post_reminders_map', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const formatDateTime = (dateTimeStr) => {
+    if (!dateTimeStr) return '';
+    const date = new Date(dateTimeStr);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
     });
   };
 
@@ -192,7 +305,7 @@ export default function Home() {
   });
 
   return (
-    <div className="app-container">
+    <div className="app-container animate-page-in">
       {/* Navbar */}
       <nav className="glass-panel navbar">
         <div className="nav-left">
@@ -207,7 +320,7 @@ export default function Home() {
           <button className="btn-icon" onClick={() => navigate('/saved')} title="Saved Pages">
             <Bookmark size={20} />
           </button>
-          <button className="btn-icon">
+          <button className="btn-icon" onClick={() => navigate('/notifications')} title="Notifications">
             <Bell size={20} />
             <span className="notification-dot"></span>
           </button>
@@ -250,14 +363,6 @@ export default function Home() {
             </ul>
           </div>
 
-          <div className="sidebar-section">
-            <h3>Description</h3>
-            <ul className="filter-list">
-              <li className="active">All Descriptions</li>
-              <li>Detailed</li>
-              <li>Brief</li>
-            </ul>
-          </div>
 
           <div className="sidebar-section">
             <h3>My Tags</h3>
@@ -325,9 +430,6 @@ export default function Home() {
                 </div>
 
                 <div className="tip-actions">
-                  <button className="action-btn upvote">
-                    ▲ {tip.upvotes}
-                  </button>
                   <button 
                     className="action-btn"
                     onClick={() => handleSave(tip.id)}
@@ -335,10 +437,78 @@ export default function Home() {
                   >
                     <Bookmark size={16} fill={savedPosts.includes(tip.id) ? 'currentColor' : 'none'} /> {savedPosts.includes(tip.id) ? 'Saved' : 'Save'}
                   </button>
+                  <button 
+                    className="action-btn"
+                    onClick={() => {
+                      if (reminders[tip.id]) {
+                        handleRemoveReminder(tip.id);
+                      } else {
+                        setActivePickerId(activePickerId === tip.id ? null : tip.id);
+                      }
+                    }}
+                    style={{ color: reminders[tip.id] ? 'var(--urgency-med)' : 'inherit', display: 'flex', gap: '6px', alignItems: 'center' }}
+                  >
+                    <BellRing size={16} fill={reminders[tip.id] ? 'currentColor' : 'none'} /> {reminders[tip.id] ? 'Reminder Set' : 'Set Reminder'}
+                  </button>
                   <button className="action-btn" onClick={() => toggleComments(tip.id)} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                     <MessageSquare size={16} /> {(tip.comments || []).length} Comments
                   </button>
                 </div>
+
+                {reminders[tip.id] && (
+                  <div className="animate-slide-down" style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--urgency-med)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                    <span>🔔 Reminder Scheduled: {formatDateTime(reminders[tip.id])}</span>
+                  </div>
+                )}
+
+                {activePickerId === tip.id && (
+                  <div className="glass-panel animate-slide-down" style={{ marginTop: '12px', padding: '14px', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)' }}>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Set Reminder:</span>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <Calendar size={14} style={{ color: 'var(--primary-accent)' }} />
+                      <input 
+                        type="date" 
+                        id={`date-${tip.id}`}
+                        className="glass-input" 
+                        style={{ border: 'none', background: 'none', padding: 0, fontSize: '0.85rem', color: 'var(--text-main)', outline: 'none' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 10px' }}>
+                      <Clock size={14} style={{ color: 'var(--primary-accent)' }} />
+                      <input 
+                        type="time" 
+                        id={`time-${tip.id}`}
+                        className="glass-input" 
+                        style={{ border: 'none', background: 'none', padding: 0, fontSize: '0.85rem', color: 'var(--text-main)', outline: 'none' }}
+                      />
+                    </div>
+
+                    <button 
+                      className="btn-primary" 
+                      style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                      onClick={() => {
+                        const dateVal = document.getElementById(`date-${tip.id}`).value;
+                        const timeVal = document.getElementById(`time-${tip.id}`).value;
+                        if (dateVal && timeVal) {
+                          handleSaveReminder(tip.id, `${dateVal}T${timeVal}`);
+                        } else {
+                          alert('Please select both Date and Time.');
+                        }
+                      }}
+                    >
+                      Set
+                    </button>
+                    <button 
+                      className="btn-secondary" 
+                      style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                      onClick={() => setActivePickerId(null)}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
                 
                 <div className="tip-verification" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                   <button 

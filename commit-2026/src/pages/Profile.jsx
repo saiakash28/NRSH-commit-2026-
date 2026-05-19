@@ -27,7 +27,7 @@ export default function Profile() {
   };
 
   return (
-    <div className="app-container" style={{ alignItems: 'center', paddingTop: '60px' }}>
+    <div className="app-container animate-page-in" style={{ alignItems: 'center', paddingTop: '60px' }}>
       <button 
         className="btn-secondary" 
         style={{ position: 'absolute', top: '24px', left: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}

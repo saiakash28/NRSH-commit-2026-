@@ -7,14 +7,15 @@ export default function Login() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    // In a real app, you would validate credentials here
+    const email = e.target.elements[0].value;
+    localStorage.setItem('user_email', email || 'student@university.edu');
     localStorage.setItem('user_authenticated', 'true');
     localStorage.setItem('user_registered', 'true'); // Ensure they are marked as registered if they successfully login
     navigate('/');
   };
 
   return (
-    <div className="auth-container">
+    <div className="auth-container animate-page-in">
       <div className="glass-panel auth-card animate-fade-in">
         <div className="auth-header">
           <div className="auth-logo">
