@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bookmark, ArrowLeft, Clock, CheckCircle, MapPin, BellRing, Calendar } from 'lucide-react';
 import { MOCK_TIPS } from './Home';
@@ -6,7 +6,23 @@ import '../App.css';
 
 export default function Saved() {
   const navigate = useNavigate();
+  const [tips, setTips] = useState([]);
   const [savedPostIds, setSavedPostIds] = useState(() => JSON.parse(localStorage.getItem('saved_posts') || '[]'));
+
+  useEffect(() => {
+    const fetchTips = () => {
+      fetch('/api/tips')
+        .then(res => res.json())
+        .then(data => setTips(data))
+        .catch(err => {
+          console.error('Failed to load saved page tips:', err);
+        });
+    };
+
+    fetchTips();
+    const interval = setInterval(fetchTips, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleUnsave = (id) => {
     const next = savedPostIds.filter(p => p !== id);
@@ -17,7 +33,7 @@ export default function Saved() {
   const [reminders, setReminders] = useState(() => JSON.parse(localStorage.getItem('post_reminders_map') || '{}'));
   const [activePickerId, setActivePickerId] = useState(null);
 
-  const handleSaveReminder = (id, dateTimeStr) => {
+  const handleSaveReminder = async (id, dateTimeStr) => {
     setReminders(prev => {
       const next = { ...prev, [id]: dateTimeStr };
       localStorage.setItem('post_reminders_map', JSON.stringify(next));
@@ -27,18 +43,33 @@ export default function Saved() {
     const userEmail = localStorage.getItem('user_email') || 'student@university.edu';
     const formatted = formatDateTime(dateTimeStr);
     
-    alert(`📧 Email Scheduled Successfully!\n\nWe have scheduled a reminder email for this post. It will be sent to:\n➡️ ${userEmail}\n\nScheduled Time: ${formatted}`);
+    try {
+      await fetch(`/api/tips/${id}/reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail, dateTimeStr })
+      });
+    } catch (err) {
+      console.error('Failed to sync reminder with backend:', err);
+    }
 
+    alert(`📧 Email Scheduled Successfully!\n\nWe have scheduled a reminder email for this post. It will be sent to:\n➡️ ${userEmail}\n\nScheduled Time: ${formatted}`);
     setActivePickerId(null);
   };
 
-  const handleRemoveReminder = (id) => {
+  const handleRemoveReminder = async (id) => {
     setReminders(prev => {
       const next = { ...prev };
       delete next[id];
       localStorage.setItem('post_reminders_map', JSON.stringify(next));
       return next;
     });
+
+    try {
+      await fetch(`/api/tips/${id}/reminder`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to sync reminder deletion with backend:', err);
+    }
   };
 
   const formatDateTime = (dateTimeStr) => {
@@ -54,7 +85,7 @@ export default function Saved() {
     });
   };
 
-  const savedTips = MOCK_TIPS.filter(tip => savedPostIds.includes(tip.id));
+  const savedTips = tips.filter(tip => savedPostIds.includes(tip.id));
 
   return (
     <div className="app-container animate-page-in" style={{ alignItems: 'center', paddingTop: '60px' }}>
@@ -105,9 +136,15 @@ export default function Saved() {
                   <div className="tip-footer-left" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
                     <span className="tip-author" style={{ color: 'var(--secondary-accent)' }}>Posted by: {tip.author}</span>
                     <div className="tip-credibility" style={{ fontSize: '0.85rem', display: 'flex', gap: '8px', color: 'var(--text-muted)' }}>
-                      <span style={{ fontWeight: 'bold', color: tip.credibilityScore >= 80 ? 'var(--urgency-low)' : (tip.credibilityScore >= 50 ? 'var(--urgency-med)' : 'var(--urgency-high)') }}>
-                        Credibility: {tip.credibilityScore}/100
-                      </span>
+                      {((tip.confirmedCount || 0) + (tip.outdatedCount || 0) + (tip.misleadingCount || 0)) === 0 ? (
+                        <span style={{ fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                          Credibility: Pending (0 votes)
+                        </span>
+                      ) : (
+                        <span style={{ fontWeight: 'bold', color: tip.credibilityScore >= 80 ? 'var(--urgency-low)' : (tip.credibilityScore >= 50 ? 'var(--urgency-med)' : 'var(--urgency-high)') }}>
+                          Credibility: {tip.credibilityScore}/100
+                        </span>
+                      )}
                     </div>
                     <span className="tip-deadline" style={{ marginTop: '4px' }}>
                       <MapPin size={14} /> Deadline: {tip.deadline}

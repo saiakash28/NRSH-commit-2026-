@@ -1,49 +1,50 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, ArrowLeft, Trash2 } from 'lucide-react';
 import '../App.css';
 
-const INITIAL_NOTIFICATIONS = [
-  {
-    id: 1,
-    title: 'Post Confirmed! ✅',
-    message: 'Your tip on "Goldman Sachs Mock Interviews" has been confirmed by 5 senior peers.',
-    time: '2 hours ago',
-    read: false,
-    type: 'confirm'
-  },
-  {
-    id: 2,
-    title: 'Upcoming Deadline ⚠️',
-    message: 'Reminder: The application for "Google STEP Program" closes in 2 days.',
-    time: '5 hours ago',
-    read: false,
-    type: 'deadline'
-  },
-  {
-    id: 3,
-    title: 'New Scholarship Alert 🎓',
-    message: 'A new scholarship "First-Gen STEM Grant" was posted for CSE students.',
-    time: '1 day ago',
-    read: true,
-    type: 'info'
-  }
-];
-
 export default function Notifications() {
   const navigate = useNavigate();
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState([]);
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  useEffect(() => {
+    fetch('/api/notifications')
+      .then(res => res.json())
+      .then(data => setNotifications(data))
+      .catch(err => console.error('Failed to load notifications:', err));
+  }, []);
+
+  const markAllAsRead = async () => {
+    try {
+      const res = await fetch('/api/notifications/read-all', { method: 'POST' });
+      const data = await res.json();
+      setNotifications(data);
+    } catch (err) {
+      console.error('Failed to mark notifications read:', err);
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    }
   };
 
-  const deleteNotification = (id) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
+  const deleteNotification = async (id) => {
+    try {
+      const res = await fetch(`/api/notifications/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      setNotifications(data);
+    } catch (err) {
+      console.error('Failed to delete notification:', err);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }
   };
 
-  const clearAll = () => {
-    setNotifications([]);
+  const clearAll = async () => {
+    try {
+      const res = await fetch('/api/notifications', { method: 'DELETE' });
+      const data = await res.json();
+      setNotifications(data);
+    } catch (err) {
+      console.error('Failed to clear notifications:', err);
+      setNotifications([]);
+    }
   };
 
   return (

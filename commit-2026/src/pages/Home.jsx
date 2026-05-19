@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Bell, Search, GraduationCap, CheckCircle, Clock, MapPin, Bookmark, LogOut, MessageSquare, Trash2, BellRing, Calendar } from 'lucide-react'
 import '../App.css'
@@ -138,12 +138,32 @@ export const MOCK_TIPS = [
 ];
 
 export default function Home() {
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [tips, setTips] = useState(MOCK_TIPS);
+  const [isPanelExpanded, setIsPanelExpanded] = useState(false);
+  const [editingTipId, setEditingTipId] = useState(null);
+  const [tips, setTips] = useState([]);
   const [savedPosts, setSavedPosts] = useState(() => JSON.parse(localStorage.getItem('saved_posts') || '[]'));
   const [expandedComments, setExpandedComments] = useState({});
   const [reminders, setReminders] = useState(() => JSON.parse(localStorage.getItem('post_reminders_map') || '{}'));
   const [activePickerId, setActivePickerId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const fetchTips = () => {
+      fetch('/api/tips')
+        .then(res => res.json())
+        .then(data => setTips(data))
+        .catch(err => {
+          console.error('Failed to load tips, using mock data:', err);
+        });
+    };
+
+    fetchTips();
+    const interval = setInterval(fetchTips, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+
+
   const navigate = useNavigate();
   const { categoryId, urgencyId } = useParams();
   const activeCategory = categoryId ? categoryId.toLowerCase() : 'all';
@@ -162,7 +182,7 @@ export default function Home() {
     });
   };
 
-  const handleSaveReminder = (id, dateTimeStr) => {
+  const handleSaveReminder = async (id, dateTimeStr) => {
     setReminders(prev => {
       const next = { ...prev, [id]: dateTimeStr };
       localStorage.setItem('post_reminders_map', JSON.stringify(next));
@@ -172,18 +192,33 @@ export default function Home() {
     const userEmail = localStorage.getItem('user_email') || 'student@university.edu';
     const formatted = formatDateTime(dateTimeStr);
     
-    alert(`📧 Email Scheduled Successfully!\n\nWe have scheduled a reminder email for this post. It will be sent to:\n➡️ ${userEmail}\n\nScheduled Time: ${formatted}`);
+    try {
+      await fetch(`/api/tips/${id}/reminder`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: userEmail, dateTimeStr })
+      });
+    } catch (err) {
+      console.error('Failed to notify backend of reminder:', err);
+    }
 
+    alert(`📧 Email Scheduled Successfully!\n\nWe have scheduled a reminder email for this post. It will be sent to:\n➡️ ${userEmail}\n\nScheduled Time: ${formatted}`);
     setActivePickerId(null);
   };
 
-  const handleRemoveReminder = (id) => {
+  const handleRemoveReminder = async (id) => {
     setReminders(prev => {
       const next = { ...prev };
       delete next[id];
       localStorage.setItem('post_reminders_map', JSON.stringify(next));
       return next;
     });
+
+    try {
+      await fetch(`/api/tips/${id}/reminder`, { method: 'DELETE' });
+    } catch (err) {
+      console.error('Failed to remove backend reminder:', err);
+    }
   };
 
   const formatDateTime = (dateTimeStr) => {
@@ -206,88 +241,201 @@ export default function Home() {
     }));
   };
 
-  const handleAddComment = (e, tipId) => {
+  const handleAddComment = async (e, tipId) => {
     e.preventDefault();
     const form = e.target;
     const text = form.commentText.value;
     if (!text.trim()) return;
 
-    setTips(currentTips => 
-      currentTips.map(tip => {
-        if (tip.id === tipId) {
-          const newComment = {
-            id: (tip.comments || []).length + 1,
-            author: 'Jane Doe (You)',
-            text: text
-          };
-          return {
-            ...tip,
-            comments: [...(tip.comments || []), newComment]
-          };
-        }
-        return tip;
-      })
-    );
-    form.reset();
-  };
+    const author = localStorage.getItem('user_name') || 'Jane Doe (You)';
 
-  const handleDeleteComment = (tipId, commentId) => {
-    setTips(currentTips =>
-      currentTips.map(tip => {
-        if (tip.id === tipId) {
-          return {
-            ...tip,
-            comments: (tip.comments || []).filter(comment => comment.id !== commentId)
-          };
-        }
-        return tip;
-      })
-    );
-  };
-
-  const handleVerification = (id, type) => {
-    setTips(currentTips => 
-      currentTips.map(tip => {
-        if (tip.id === id) {
-          const prevVote = tip.userVote;
-          
-          if (prevVote === type) {
-            // Toggle off vote
+    try {
+      const res = await fetch(`/api/tips/${tipId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ author, text })
+      });
+      const updatedTip = await res.json();
+      setTips(prev => prev.map(t => t.id === tipId ? updatedTip : t));
+      form.reset();
+    } catch (err) {
+      console.error('Adding comment failed:', err);
+      // Fallback
+      setTips(currentTips => 
+        currentTips.map(tip => {
+          if (tip.id === tipId) {
+            const newComment = {
+              id: (tip.comments || []).length + 1,
+              author: 'Jane Doe (You)',
+              text: text
+            };
             return {
               ...tip,
-              userVote: null,
-              confirmedCount: type === 'confirm' ? tip.confirmedCount - 1 : tip.confirmedCount,
-              outdatedCount: type === 'outdate' ? tip.outdatedCount - 1 : tip.outdatedCount,
-              misleadingCount: type === 'mislead' ? tip.misleadingCount - 1 : tip.misleadingCount,
+              comments: [...(tip.comments || []), newComment]
             };
-          } else {
-            // New vote or change vote
-            const updatedTip = {
-              ...tip,
-              userVote: type
-            };
-            
-            // Decrement old
-            if (prevVote === 'confirm') updatedTip.confirmedCount -= 1;
-            if (prevVote === 'outdate') updatedTip.outdatedCount -= 1;
-            if (prevVote === 'mislead') updatedTip.misleadingCount -= 1;
-            
-            // Increment new
-            if (type === 'confirm') updatedTip.confirmedCount += 1;
-            if (type === 'outdate') updatedTip.outdatedCount += 1;
-            if (type === 'mislead') updatedTip.misleadingCount += 1;
-
-            return updatedTip;
           }
+          return tip;
+        })
+      );
+      form.reset();
+    }
+  };
+
+  const handleDeleteComment = async (tipId, commentId) => {
+    try {
+      const res = await fetch(`/api/tips/${tipId}/comments/${commentId}`, {
+        method: 'DELETE'
+      });
+      const updatedTip = await res.json();
+      setTips(prev => prev.map(t => t.id === tipId ? updatedTip : t));
+    } catch (err) {
+      console.error('Deleting comment failed:', err);
+      // Fallback
+      setTips(currentTips =>
+        currentTips.map(tip => {
+          if (tip.id === tipId) {
+            return {
+              ...tip,
+              comments: (tip.comments || []).filter(comment => comment.id !== commentId)
+            };
+          }
+          return tip;
+        })
+      );
+    }
+  };
+
+  const handleVerification = async (id, type) => {
+    const tip = tips.find(t => t.id === id);
+    if (!tip) return;
+    const prevVote = tip.userVote;
+
+    // Optimistically update UI
+    setTips(currentTips => 
+      currentTips.map(t => {
+        if (t.id === id) {
+          const nextVote = prevVote === type ? null : type;
+          const updated = { ...t, userVote: nextVote };
+          if (prevVote === 'confirm') updated.confirmedCount = Math.max(0, updated.confirmedCount - 1);
+          if (prevVote === 'outdate') updated.outdatedCount = Math.max(0, updated.outdatedCount - 1);
+          if (prevVote === 'mislead') updated.misleadingCount = Math.max(0, updated.misleadingCount - 1);
+          
+          if (nextVote === 'confirm') updated.confirmedCount += 1;
+          if (nextVote === 'outdate') updated.outdatedCount += 1;
+          if (nextVote === 'mislead') updated.misleadingCount += 1;
+          return updated;
         }
-        return tip;
+        return t;
       })
     );
+
+    try {
+      const res = await fetch(`/api/tips/${id}/vote`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: prevVote === type ? null : type, prevVote })
+      });
+      const updatedTip = await res.json();
+      setTips(prev => prev.map(t => t.id === id ? { ...t, ...updatedTip, userVote: prevVote === type ? null : type } : t));
+    } catch (err) {
+      console.error('Failed to submit peer verification vote:', err);
+    }
+  };
+
+
+
+  const handleCreateTopPost = async () => {
+    const titleVal = document.getElementById('top-post-title').value;
+    const contentVal = document.getElementById('top-post-content').value;
+    const categoryVal = document.getElementById('top-post-category').value;
+    const urgencyText = document.getElementById('top-post-urgency').value;
+    const deadlineDate = document.getElementById('top-post-deadline').value;
+
+    if (!titleVal || !contentVal || !categoryVal) {
+      alert('Please fill out Title, Context, and Category.');
+      return;
+    }
+
+    const urgency = urgencyText.includes('High') ? 'high' : (urgencyText.includes('Medium') ? 'med' : 'low');
+    const tags = ['#CS', `#${categoryVal.toUpperCase()}`];
+    const author = localStorage.getItem('user_name') || 'Jane Doe (You)';
+
+    try {
+      const res = await fetch('/api/tips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: categoryVal.charAt(0).toUpperCase() + categoryVal.slice(1),
+          title: titleVal,
+          content: contentVal,
+          urgency,
+          deadline: deadlineDate || 'TBA',
+          tags,
+          author
+        })
+      });
+      const newTip = await res.json();
+      setTips(prev => [newTip, ...prev]);
+      setIsPanelExpanded(false);
+    } catch (err) {
+      console.error('Failed to create new tip:', err);
+    }
+  };
+
+  const handleScrollToCompose = () => {
+    setIsPanelExpanded(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      document.getElementById('top-post-title')?.focus();
+    }, 400);
+  };
+
+  const handleDeletePost = async (id) => {
+    if (!confirm('Are you sure you want to delete this intelligence tip?')) return;
+    try {
+      await fetch(`/api/tips/${id}`, { method: 'DELETE' });
+      setTips(prev => prev.filter(t => t.id !== id));
+    } catch (err) {
+      console.error('Failed to delete tip:', err);
+    }
+  };
+
+  const handleSaveEdit = async (id) => {
+    const titleVal = document.getElementById(`edit-title-${id}`).value;
+    const contentVal = document.getElementById(`edit-content-${id}`).value;
+    const categoryVal = document.getElementById(`edit-category-${id}`).value;
+    const urgencyVal = document.getElementById(`edit-urgency-${id}`).value;
+    const deadlineVal = document.getElementById(`edit-deadline-${id}`).value;
+
+    if (!titleVal || !contentVal) {
+      alert('Title and Content cannot be empty.');
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/tips/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: titleVal,
+          content: contentVal,
+          category: categoryVal.charAt(0).toUpperCase() + categoryVal.slice(1),
+          urgency: urgencyVal,
+          deadline: deadlineVal || 'TBA'
+        })
+      });
+      const updatedTip = await res.json();
+      setTips(prev => prev.map(t => t.id === id ? { ...t, ...updatedTip } : t));
+      setEditingTipId(null);
+    } catch (err) {
+      console.error('Failed to update tip:', err);
+    }
   };
 
   const filteredTips = tips.filter(tip => {
     let categoryMatch = true;
     let urgencyMatch = true;
+    let searchMatch = true;
 
     if (activeCategory !== 'all') {
       const normTip = tip.category.toLowerCase().replace(/s$/, '').replace(' ', '-');
@@ -301,7 +449,16 @@ export default function Home() {
       urgencyMatch = (tip.urgency === normUrg);
     }
 
-    return categoryMatch && urgencyMatch;
+    if (searchQuery.trim() !== '') {
+      const query = searchQuery.toLowerCase();
+      const titleMatch = tip.title.toLowerCase().includes(query);
+      const contentMatch = tip.content.toLowerCase().includes(query);
+      const tagMatch = tip.tags.some(t => t.toLowerCase().includes(query));
+      const catMatch = tip.category.toLowerCase().includes(query);
+      searchMatch = titleMatch || contentMatch || tagMatch || catMatch;
+    }
+
+    return categoryMatch && urgencyMatch && searchMatch;
   });
 
   return (
@@ -314,7 +471,13 @@ export default function Home() {
         </div>
         <div className="nav-search">
           <Search size={18} className="search-icon" />
-          <input type="text" placeholder="Search for courses, tags, or deadlines..." className="search-input" />
+          <input 
+            type="text" 
+            placeholder="Search for courses, tags, or deadlines..." 
+            className="search-input" 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
         </div>
         <div className="nav-right">
           <button className="btn-icon" onClick={() => navigate('/saved')} title="Saved Pages">
@@ -324,11 +487,24 @@ export default function Home() {
             <Bell size={20} />
             <span className="notification-dot"></span>
           </button>
-          <button className="btn-primary" onClick={() => setShowSubmitModal(true)}>
+          <button className="btn-primary" onClick={handleScrollToCompose} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '6px 12px', fontSize: '0.85rem' }}>
             + Add Tip
           </button>
           <button className="btn-icon" onClick={() => navigate('/profile')} title="View Profile" style={{ padding: 0 }}>
-            <div className="user-avatar" style={{ cursor: 'pointer' }}>F</div>
+            <div 
+              className="user-avatar" 
+              style={{ 
+                cursor: 'pointer',
+                background: localStorage.getItem('user_avatar') && localStorage.getItem('user_avatar').startsWith('linear-gradient') ? localStorage.getItem('user_avatar') : 'var(--primary-accent)',
+                overflow: 'hidden'
+              }}
+            >
+              {localStorage.getItem('user_avatar') && !localStorage.getItem('user_avatar').startsWith('linear-gradient') ? (
+                <img src={localStorage.getItem('user_avatar')} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              ) : (
+                (localStorage.getItem('user_name') || 'Jane Doe').charAt(0)
+              )}
+            </div>
           </button>
           <button className="btn-icon" onClick={handleLogout} title="Logout" style={{ marginLeft: '8px' }}>
             <LogOut size={20} />
@@ -389,210 +565,289 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Premium Standard Top Share Intelligence Panel */}
+          {isPanelExpanded && (
+            <div className="glass-panel share-intelligence-panel animate-fade-in" style={{ animationDelay: '0.05s', marginBottom: '24px' }}>
+              <div className="share-panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'default' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div 
+                    className="user-avatar" 
+                    style={{ 
+                      background: localStorage.getItem('user_avatar') && localStorage.getItem('user_avatar').startsWith('linear-gradient') ? localStorage.getItem('user_avatar') : 'var(--primary-accent)', 
+                      color: 'white', 
+                      fontWeight: 'bold',
+                      overflow: 'hidden'
+                    }}
+                  >
+                    {localStorage.getItem('user_avatar') && !localStorage.getItem('user_avatar').startsWith('linear-gradient') ? (
+                      <img src={localStorage.getItem('user_avatar')} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      (localStorage.getItem('user_name') || 'F').charAt(0)
+                    )}
+                  </div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--text-main)' }}>Share Academic & Career Intelligence</h3>
+                </div>
+                <button className="close-btn" onClick={() => setIsPanelExpanded(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>
+                  ×
+                </button>
+              </div>
+              
+              <div className="share-panel-expanded animate-slide-down" style={{ marginTop: '16px' }}>
+                <hr className="divider" />
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                  <label>Title</label>
+                  <input type="text" id="top-post-title" placeholder="E.g., Google STEP Program closing soon!" className="glass-input" />
+                </div>
+                <div className="form-group" style={{ marginBottom: '14px' }}>
+                  <label>Context & Advice</label>
+                  <textarea id="top-post-content" placeholder="Share your insider knowledge..." className="glass-input" rows={4}></textarea>
+                </div>
+                <div className="form-row" style={{ marginBottom: '14px' }}>
+                  <div className="form-group">
+                    <label>Category</label>
+                    <select id="top-post-category" className="glass-input" defaultValue="">
+                      <option value="" disabled>Select Category</option>
+                      <option value="internships">Internships</option>
+                      <option value="academics">Academics</option>
+                      <option value="scholarships">Scholarships</option>
+                      <option value="campus-life">Campus Life</option>
+                      <option value="club">Club</option>
+                      <option value="placement">Placement</option>
+                      <option value="research">Research</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label>Urgency</label>
+                    <select id="top-post-urgency" className="glass-input">
+                      <option>High (Next 7 days)</option>
+                      <option>Medium (Next 30 days)</option>
+                      <option>Low (Good to know)</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Deadline Date</label>
+                    <input type="text" id="top-post-deadline" placeholder="E.g., Oct 25, 2026 or Tonight: 8 PM" className="glass-input" />
+                  </div>
+                </div>
+                <button className="btn-primary full-width mt-4" style={{ padding: '12px' }} onClick={handleCreateTopPost}>
+                  Submit to Network
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="tips-container">
             {filteredTips.map((tip, idx) => (
               <div key={tip.id} id={`post-${tip.id}`} className="tip-card glass-panel animate-fade-in" style={{animationDelay: `${idx * 0.1}s`}}>
-                <div className="tip-header">
-                  <div className="tip-meta">
-                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>#{tip.id}</span>
-                    <span className="tip-category">{tip.category}</span>
-                    <span className={`urgency-badge urgency-${tip.urgency}`}>
-                      <Clock size={14} /> 
-                      {tip.urgency.toUpperCase()}
-                    </span>
-                  </div>
-                  {tip.verified && (
-                    <span className="verified-badge">
-                      <CheckCircle size={14} /> Verified by Peers
-                    </span>
-                  )}
-                </div>
-                
-                <h3 className="tip-title">{tip.title}</h3>
-                <p className="tip-content">{tip.content}</p>
-                
-                <div className="tip-footer">
-                  <div className="tip-footer-left" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
-                    <span className="tip-author" style={{ color: 'var(--secondary-accent)' }}>Posted by: {tip.author}</span>
-                    <div className="tip-credibility" style={{ fontSize: '0.85rem', display: 'flex', gap: '8px', color: 'var(--text-muted)' }}>
-                      <span style={{ fontWeight: 'bold', color: tip.credibilityScore >= 80 ? 'var(--urgency-low)' : (tip.credibilityScore >= 50 ? 'var(--urgency-med)' : 'var(--urgency-high)') }}>
-                        Credibility: {tip.credibilityScore}/100
+                  <div className="tip-header">
+                    <div className="tip-meta">
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>#{tip.id}</span>
+                      <span className="tip-category">{tip.category}</span>
+                      <span className={`urgency-badge urgency-${tip.urgency}`}>
+                        <Clock size={14} /> 
+                        {tip.urgency.toUpperCase()}
                       </span>
-                      <span>• Confirmed by {tip.confirmedCount} students</span>
                     </div>
-                    <span className="tip-deadline" style={{ marginTop: '4px' }}>
-                      <MapPin size={14} /> Deadline: {tip.deadline}
-                    </span>
+                    {tip.verified && (
+                      <span className="verified-badge">
+                        <CheckCircle size={14} /> Verified by Peers
+                      </span>
+                    )}
                   </div>
-                  <div className="tip-tags">
-                    {tip.tags.map(t => <span key={t} className="tag small">{t}</span>)}
-                  </div>
-                </div>
-
-                <div className="tip-actions">
-                  <button 
-                    className="action-btn"
-                    onClick={() => handleSave(tip.id)}
-                    style={{ color: savedPosts.includes(tip.id) ? 'var(--primary-accent)' : 'inherit' }}
-                  >
-                    <Bookmark size={16} fill={savedPosts.includes(tip.id) ? 'currentColor' : 'none'} /> {savedPosts.includes(tip.id) ? 'Saved' : 'Save'}
-                  </button>
-                  <button 
-                    className="action-btn"
-                    onClick={() => {
-                      if (reminders[tip.id]) {
-                        handleRemoveReminder(tip.id);
-                      } else {
-                        setActivePickerId(activePickerId === tip.id ? null : tip.id);
-                      }
-                    }}
-                    style={{ color: reminders[tip.id] ? 'var(--urgency-med)' : 'inherit', display: 'flex', gap: '6px', alignItems: 'center' }}
-                  >
-                    <BellRing size={16} fill={reminders[tip.id] ? 'currentColor' : 'none'} /> {reminders[tip.id] ? 'Reminder Set' : 'Set Reminder'}
-                  </button>
-                  <button className="action-btn" onClick={() => toggleComments(tip.id)} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                    <MessageSquare size={16} /> {(tip.comments || []).length} Comments
-                  </button>
-                </div>
-
-                {reminders[tip.id] && (
-                  <div className="animate-slide-down" style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--urgency-med)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
-                    <span>🔔 Reminder Scheduled: {formatDateTime(reminders[tip.id])}</span>
-                  </div>
-                )}
-
-                {activePickerId === tip.id && (
-                  <div className="glass-panel animate-slide-down" style={{ marginTop: '12px', padding: '14px', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)' }}>
-                    <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Set Reminder:</span>
-                    
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 10px' }}>
-                      <Calendar size={14} style={{ color: 'var(--primary-accent)' }} />
-                      <input 
-                        type="date" 
-                        id={`date-${tip.id}`}
-                        className="glass-input" 
-                        style={{ border: 'none', background: 'none', padding: 0, fontSize: '0.85rem', color: 'var(--text-main)', outline: 'none' }}
-                      />
+                  
+                  <h3 className="tip-title">{tip.title}</h3>
+                  <p className="tip-content">{tip.content}</p>
+                  
+                  <div className="tip-footer">
+                    <div className="tip-footer-left" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+                      <span className="tip-author" style={{ color: 'var(--secondary-accent)' }}>Posted by: {tip.author}</span>
+                      <div className="tip-credibility" style={{ fontSize: '0.85rem', display: 'flex', gap: '8px', color: 'var(--text-muted)' }}>
+                        {((tip.confirmedCount || 0) + (tip.outdatedCount || 0) + (tip.misleadingCount || 0)) === 0 ? (
+                          <span style={{ fontWeight: 'bold', color: 'var(--text-muted)' }}>
+                            Credibility: Pending (0 votes)
+                          </span>
+                        ) : (
+                          <span style={{ fontWeight: 'bold', color: tip.credibilityScore >= 80 ? 'var(--urgency-low)' : (tip.credibilityScore >= 50 ? 'var(--urgency-med)' : 'var(--urgency-high)') }}>
+                            Credibility: {tip.credibilityScore}/100
+                          </span>
+                        )}
+                        <span>• Confirmed by {tip.confirmedCount} students</span>
+                      </div>
+                      <span className="tip-deadline" style={{ marginTop: '4px' }}>
+                        <MapPin size={14} /> Deadline: {tip.deadline}
+                      </span>
                     </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 10px' }}>
-                      <Clock size={14} style={{ color: 'var(--primary-accent)' }} />
-                      <input 
-                        type="time" 
-                        id={`time-${tip.id}`}
-                        className="glass-input" 
-                        style={{ border: 'none', background: 'none', padding: 0, fontSize: '0.85rem', color: 'var(--text-main)', outline: 'none' }}
-                      />
+                    <div className="tip-tags">
+                      {tip.tags.map(t => <span key={t} className="tag small">{t}</span>)}
                     </div>
+                  </div>
 
+                  <div className="tip-actions">
                     <button 
-                      className="btn-primary" 
-                      style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                      className="action-btn"
+                      onClick={() => handleSave(tip.id)}
+                      style={{ color: savedPosts.includes(tip.id) ? 'var(--primary-accent)' : 'inherit' }}
+                    >
+                      <Bookmark size={16} fill={savedPosts.includes(tip.id) ? 'currentColor' : 'none'} /> {savedPosts.includes(tip.id) ? 'Saved' : 'Save'}
+                    </button>
+                    <button 
+                      className="action-btn"
                       onClick={() => {
-                        const dateVal = document.getElementById(`date-${tip.id}`).value;
-                        const timeVal = document.getElementById(`time-${tip.id}`).value;
-                        if (dateVal && timeVal) {
-                          handleSaveReminder(tip.id, `${dateVal}T${timeVal}`);
+                        if (reminders[tip.id]) {
+                          handleRemoveReminder(tip.id);
                         } else {
-                          alert('Please select both Date and Time.');
+                          setActivePickerId(activePickerId === tip.id ? null : tip.id);
                         }
                       }}
+                      style={{ color: reminders[tip.id] ? 'var(--urgency-med)' : 'inherit', display: 'flex', gap: '6px', alignItems: 'center' }}
                     >
-                      Set
+                      <BellRing size={16} fill={reminders[tip.id] ? 'currentColor' : 'none'} /> {reminders[tip.id] ? 'Reminder Set' : 'Set Reminder'}
+                    </button>
+                    <button className="action-btn" onClick={() => toggleComments(tip.id)} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <MessageSquare size={16} /> {(tip.comments || []).length} Comments
+                    </button>
+                  </div>
+
+                  {reminders[tip.id] && (
+                    <div className="animate-slide-down" style={{ marginTop: '12px', fontSize: '0.85rem', color: 'var(--urgency-med)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 'bold' }}>
+                      <span>🔔 Reminder Scheduled: {formatDateTime(reminders[tip.id])}</span>
+                    </div>
+                  )}
+
+                  {activePickerId === tip.id && (
+                    <div className="glass-panel animate-slide-down" style={{ marginTop: '12px', padding: '14px', borderRadius: '12px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', border: '1px solid var(--border-color)', background: 'rgba(255, 255, 255, 0.02)' }}>
+                      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Set Reminder:</span>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 10px' }}>
+                        <Calendar size={14} style={{ color: 'var(--primary-accent)' }} />
+                        <input 
+                          type="date" 
+                          id={`date-${tip.id}`}
+                          className="glass-input" 
+                          style={{ border: 'none', background: 'none', padding: 0, fontSize: '0.85rem', color: 'var(--text-main)', outline: 'none' }}
+                        />
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-color)', borderRadius: '6px', padding: '6px 10px' }}>
+                        <Clock size={14} style={{ color: 'var(--primary-accent)' }} />
+                        <input 
+                          type="time" 
+                          id={`time-${tip.id}`}
+                          className="glass-input" 
+                          style={{ border: 'none', background: 'none', padding: 0, fontSize: '0.85rem', color: 'var(--text-main)', outline: 'none' }}
+                        />
+                      </div>
+
+                      <button 
+                        className="btn-primary" 
+                        style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                        onClick={() => {
+                          const dateVal = document.getElementById(`date-${tip.id}`).value;
+                          const timeVal = document.getElementById(`time-${tip.id}`).value;
+                          if (dateVal && timeVal) {
+                            handleSaveReminder(tip.id, `${dateVal}T${timeVal}`);
+                          } else {
+                            alert('Please select both Date and Time.');
+                          }
+                        }}
+                      >
+                        Set
+                      </button>
+                      <button 
+                        className="btn-secondary" 
+                        style={{ padding: '6px 12px', fontSize: '0.85rem' }}
+                        onClick={() => setActivePickerId(null)}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                  
+                  <div className="tip-verification" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    <button 
+                      className="action-btn" 
+                      onClick={() => handleVerification(tip.id, 'confirm')} 
+                      style={{ 
+                        background: tip.userVote === 'confirm' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.1)', 
+                        color: 'var(--urgency-low)', 
+                        borderColor: tip.userVote === 'confirm' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(16, 185, 129, 0.2)' 
+                      }}
+                    >
+                      ✅ Confirmed <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.confirmedCount}</span>
                     </button>
                     <button 
-                      className="btn-secondary" 
-                      style={{ padding: '6px 12px', fontSize: '0.85rem' }}
-                      onClick={() => setActivePickerId(null)}
+                      className="action-btn" 
+                      onClick={() => handleVerification(tip.id, 'outdate')} 
+                      style={{ 
+                        background: tip.userVote === 'outdate' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.1)', 
+                        color: 'var(--urgency-med)', 
+                        borderColor: tip.userVote === 'outdate' ? 'rgba(245, 158, 11, 0.6)' : 'rgba(245, 158, 11, 0.2)' 
+                      }}
                     >
-                      Cancel
+                      ⚠️ Outdated <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.outdatedCount}</span>
+                    </button>
+                    <button 
+                      className="action-btn" 
+                      onClick={() => handleVerification(tip.id, 'mislead')} 
+                      style={{ 
+                        background: tip.userVote === 'mislead' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)', 
+                        color: 'var(--urgency-high)', 
+                        borderColor: tip.userVote === 'mislead' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.2)' 
+                      }}
+                    >
+                      ❌ Misleading <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.misleadingCount}</span>
                     </button>
                   </div>
-                )}
-                
-                <div className="tip-verification" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  <button 
-                    className="action-btn" 
-                    onClick={() => handleVerification(tip.id, 'confirm')} 
-                    style={{ 
-                      background: tip.userVote === 'confirm' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.1)', 
-                      color: 'var(--urgency-low)', 
-                      borderColor: tip.userVote === 'confirm' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(16, 185, 129, 0.2)' 
-                    }}
-                  >
-                    ✅ Confirmed <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.confirmedCount}</span>
-                  </button>
-                  <button 
-                    className="action-btn" 
-                    onClick={() => handleVerification(tip.id, 'outdate')} 
-                    style={{ 
-                      background: tip.userVote === 'outdate' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.1)', 
-                      color: 'var(--urgency-med)', 
-                      borderColor: tip.userVote === 'outdate' ? 'rgba(245, 158, 11, 0.6)' : 'rgba(245, 158, 11, 0.2)' 
-                    }}
-                  >
-                    ⚠️ Outdated <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.outdatedCount}</span>
-                  </button>
-                  <button 
-                    className="action-btn" 
-                    onClick={() => handleVerification(tip.id, 'mislead')} 
-                    style={{ 
-                      background: tip.userVote === 'mislead' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)', 
-                      color: 'var(--urgency-high)', 
-                      borderColor: tip.userVote === 'mislead' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.2)' 
-                    }}
-                  >
-                    ❌ Misleading <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.misleadingCount}</span>
-                  </button>
-                </div>
 
-                {expandedComments[tip.id] && (
-                  <div className="tip-comments" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
-                    <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: 'var(--text-main)' }}>Discussion</h4>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
-                      {(tip.comments || []).length === 0 ? (
-                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
-                          No comments yet. Start the discussion below!
-                        </div>
-                      ) : (
-                        (tip.comments || []).map(comment => (
-                          <div key={comment.id} style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: '12px', fontSize: '0.9rem' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                              <span style={{ fontWeight: 'bold', color: 'var(--secondary-accent)', fontSize: '0.8rem' }}>
-                                {comment.author}
-                              </span>
-                              {comment.author === 'Jane Doe (You)' && (
-                                <button 
-                                  onClick={() => handleDeleteComment(tip.id, comment.id)} 
-                                  style={{ background: 'none', border: 'none', color: 'var(--urgency-high)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
-                                  title="Delete Comment"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
-                            </div>
-                            <div style={{ color: 'var(--text-main)', lineHeight: '1.4' }}>{comment.text}</div>
+                  {expandedComments[tip.id] && (
+                    <div className="tip-comments" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                      <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: 'var(--text-main)' }}>Discussion</h4>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                        {(tip.comments || []).length === 0 ? (
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                            No comments yet. Start the discussion below!
                           </div>
-                        ))
-                      )}
+                        ) : (
+                          (tip.comments || []).map(comment => (
+                            <div key={comment.id} style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: '12px', fontSize: '0.9rem' }}>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                <span style={{ fontWeight: 'bold', color: 'var(--secondary-accent)', fontSize: '0.8rem' }}>
+                                  {comment.author}
+                                </span>
+                                {comment.author === 'Jane Doe (You)' && (
+                                  <button 
+                                    onClick={() => handleDeleteComment(tip.id, comment.id)} 
+                                    style={{ background: 'none', border: 'none', color: 'var(--urgency-high)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                                    title="Delete Comment"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                              <div style={{ color: 'var(--text-main)', lineHeight: '1.4' }}>{comment.text}</div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <form onSubmit={(e) => handleAddComment(e, tip.id)} style={{ display: 'flex', gap: '8px' }}>
+                        <input 
+                          type="text" 
+                          placeholder="Share your thought or ask a question..." 
+                          className="glass-input" 
+                          style={{ flex: 1, padding: '10px 14px', fontSize: '0.9rem' }}
+                          name="commentText"
+                          required
+                          autoComplete="off"
+                        />
+                        <button type="submit" className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.9rem' }}>
+                          Post
+                        </button>
+                      </form>
                     </div>
-                    <form onSubmit={(e) => handleAddComment(e, tip.id)} style={{ display: 'flex', gap: '8px' }}>
-                      <input 
-                        type="text" 
-                        placeholder="Share your thought or ask a question..." 
-                        className="glass-input" 
-                        style={{ flex: 1, padding: '10px 14px', fontSize: '0.9rem' }}
-                        name="commentText"
-                        required
-                        autoComplete="off"
-                      />
-                      <button type="submit" className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.9rem' }}>
-                        Post
-                      </button>
-                    </form>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
             ))}
           </div>
         </main>
@@ -627,60 +882,6 @@ export default function Home() {
         </aside>
       </div>
 
-      {/* Basic Submit Modal Overlay (Just UI) */}
-      {showSubmitModal && (
-        <div className="modal-overlay" onClick={() => setShowSubmitModal(false)}>
-          <div className="modal glass-panel" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>Submit Intelligence</h2>
-              <button className="close-btn" onClick={() => setShowSubmitModal(false)}>×</button>
-            </div>
-            <div className="modal-body">
-              <div className="form-group">
-                <label>Title</label>
-                <input type="text" placeholder="E.g., Google STEP Program closing soon!" className="glass-input" />
-              </div>
-              <div className="form-group">
-                <label>Context & Advice</label>
-                <textarea placeholder="Share your insider knowledge..." className="glass-input" rows={4}></textarea>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Category</label>
-                  <select className="glass-input" defaultValue="">
-                    <option value="" disabled>Select Category</option>
-                    <option value="internships">Internships</option>
-                    <option value="academics">Academics</option>
-                    <option value="scholarships">Scholarships</option>
-                    <option value="campus-life">Campus Life</option>
-                    <option value="club">Club</option>
-                    <option value="placement">Placement</option>
-                    <option value="research">Research</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Urgency</label>
-                  <select className="glass-input">
-                    <option>High (Next 7 days)</option>
-                    <option>Medium (Next 30 days)</option>
-                    <option>Low (Good to know)</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-row mt-4">
-                <div className="form-group">
-                  <label>Deadline Date</label>
-                  <input type="date" className="glass-input" />
-                </div>
-                <div className="form-group"></div>
-              </div>
-              <button className="btn-primary full-width mt-4" onClick={() => setShowSubmitModal(false)}>
-                Submit to Network
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
