@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Bell, Search, GraduationCap, CheckCircle, Clock, MapPin, Bookmark, LogOut } from 'lucide-react'
+import { Bell, Search, GraduationCap, CheckCircle, Clock, MapPin, Bookmark, LogOut, MessageSquare, Trash2 } from 'lucide-react'
 import '../App.css'
 
 // Mock Data
-const MOCK_TIPS = [
+export const MOCK_TIPS = [
   {
     id: 1,
     category: 'Internship',
@@ -19,7 +19,11 @@ const MOCK_TIPS = [
     credibilityScore: 87,
     confirmedCount: 24,
     outdatedCount: 2,
-    misleadingCount: 1
+    misleadingCount: 1,
+    comments: [
+      { id: 1, author: 'Alex_ECE', text: 'Apply fast! The server gets super slow on the last day.' },
+      { id: 2, author: 'Rahul_Kumar', text: 'Does this require any prior internship experience?' }
+    ]
   },
   {
     id: 2,
@@ -35,7 +39,10 @@ const MOCK_TIPS = [
     credibilityScore: 92,
     confirmedCount: 18,
     outdatedCount: 0,
-    misleadingCount: 0
+    misleadingCount: 0,
+    comments: [
+      { id: 1, author: 'CS_Junior', text: 'Completely agree, his midterms are brutal.' }
+    ]
   },
   {
     id: 3,
@@ -51,13 +58,16 @@ const MOCK_TIPS = [
     credibilityScore: 45,
     confirmedCount: 3,
     outdatedCount: 12,
-    misleadingCount: 8
+    misleadingCount: 8,
+    comments: []
   }
 ];
 
 export default function Home() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [tips, setTips] = useState(MOCK_TIPS);
+  const [savedPosts, setSavedPosts] = useState(() => JSON.parse(localStorage.getItem('saved_posts') || '[]'));
+  const [expandedComments, setExpandedComments] = useState({});
   const navigate = useNavigate();
   const { categoryId, urgencyId } = useParams();
   const activeCategory = categoryId ? categoryId.toLowerCase() : 'all';
@@ -66,6 +76,60 @@ export default function Home() {
   const handleLogout = () => {
     localStorage.removeItem('user_authenticated');
     navigate('/login');
+  };
+
+  const handleSave = (id) => {
+    setSavedPosts(prev => {
+      const next = prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id];
+      localStorage.setItem('saved_posts', JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const toggleComments = (id) => {
+    setExpandedComments(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
+
+  const handleAddComment = (e, tipId) => {
+    e.preventDefault();
+    const form = e.target;
+    const text = form.commentText.value;
+    if (!text.trim()) return;
+
+    setTips(currentTips => 
+      currentTips.map(tip => {
+        if (tip.id === tipId) {
+          const newComment = {
+            id: (tip.comments || []).length + 1,
+            author: 'Jane Doe (You)',
+            text: text
+          };
+          return {
+            ...tip,
+            comments: [...(tip.comments || []), newComment]
+          };
+        }
+        return tip;
+      })
+    );
+    form.reset();
+  };
+
+  const handleDeleteComment = (tipId, commentId) => {
+    setTips(currentTips =>
+      currentTips.map(tip => {
+        if (tip.id === tipId) {
+          return {
+            ...tip,
+            comments: (tip.comments || []).filter(comment => comment.id !== commentId)
+          };
+        }
+        return tip;
+      })
+    );
   };
 
   const handleVerification = (id, type) => {
@@ -140,6 +204,9 @@ export default function Home() {
           <input type="text" placeholder="Search for courses, tags, or deadlines..." className="search-input" />
         </div>
         <div className="nav-right">
+          <button className="btn-icon" onClick={() => navigate('/saved')} title="Saved Pages">
+            <Bookmark size={20} />
+          </button>
           <button className="btn-icon">
             <Bell size={20} />
             <span className="notification-dot"></span>
@@ -261,8 +328,15 @@ export default function Home() {
                   <button className="action-btn upvote">
                     ▲ {tip.upvotes}
                   </button>
-                  <button className="action-btn">
-                    <Bookmark size={16} /> Save
+                  <button 
+                    className="action-btn"
+                    onClick={() => handleSave(tip.id)}
+                    style={{ color: savedPosts.includes(tip.id) ? 'var(--primary-accent)' : 'inherit' }}
+                  >
+                    <Bookmark size={16} fill={savedPosts.includes(tip.id) ? 'currentColor' : 'none'} /> {savedPosts.includes(tip.id) ? 'Saved' : 'Save'}
+                  </button>
+                  <button className="action-btn" onClick={() => toggleComments(tip.id)} style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                    <MessageSquare size={16} /> {(tip.comments || []).length} Comments
                   </button>
                 </div>
                 
@@ -301,6 +375,53 @@ export default function Home() {
                     ❌ Misleading <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.misleadingCount}</span>
                   </button>
                 </div>
+
+                {expandedComments[tip.id] && (
+                  <div className="tip-comments" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)' }}>
+                    <h4 style={{ margin: '0 0 12px 0', fontSize: '0.95rem', color: 'var(--text-main)' }}>Discussion</h4>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                      {(tip.comments || []).length === 0 ? (
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '4px 0' }}>
+                          No comments yet. Start the discussion below!
+                        </div>
+                      ) : (
+                        (tip.comments || []).map(comment => (
+                          <div key={comment.id} style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-color)', padding: '10px 14px', borderRadius: '12px', fontSize: '0.9rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                              <span style={{ fontWeight: 'bold', color: 'var(--secondary-accent)', fontSize: '0.8rem' }}>
+                                {comment.author}
+                              </span>
+                              {comment.author === 'Jane Doe (You)' && (
+                                <button 
+                                  onClick={() => handleDeleteComment(tip.id, comment.id)} 
+                                  style={{ background: 'none', border: 'none', color: 'var(--urgency-high)', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center' }}
+                                  title="Delete Comment"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                            </div>
+                            <div style={{ color: 'var(--text-main)', lineHeight: '1.4' }}>{comment.text}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <form onSubmit={(e) => handleAddComment(e, tip.id)} style={{ display: 'flex', gap: '8px' }}>
+                      <input 
+                        type="text" 
+                        placeholder="Share your thought or ask a question..." 
+                        className="glass-input" 
+                        style={{ flex: 1, padding: '10px 14px', fontSize: '0.9rem' }}
+                        name="commentText"
+                        required
+                        autoComplete="off"
+                      />
+                      <button type="submit" className="btn-primary" style={{ padding: '10px 20px', fontSize: '0.9rem' }}>
+                        Post
+                      </button>
+                    </form>
+                  </div>
+                )}
               </div>
             ))}
           </div>
