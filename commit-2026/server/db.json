@@ -1,0 +1,268 @@
+{
+  "tips": [
+    {
+      "id": 1,
+      "category": "Internship",
+      "title": "Google STEP Program closing in 2 days!",
+      "content": "If you are a sophomore or freshman, apply now! They care more about your data structures knowledge than past experience. Make sure to use the XYZ referral trick if possible.",
+      "urgency": "high",
+      "deadline": "Oct 15, 2026",
+      "tags": [
+        "#CS",
+        "#Google",
+        "#Sophomore"
+      ],
+      "upvotes": 245,
+      "verified": true,
+      "author": "Final Year CSE Senior",
+      "credibilityScore": 87,
+      "confirmedCount": 24,
+      "outdatedCount": 2,
+      "misleadingCount": 1,
+      "comments": [
+        {
+          "id": 1,
+          "author": "Alex_ECE",
+          "text": "Apply fast! The server gets super slow on the last day."
+        },
+        {
+          "id": 2,
+          "author": "Rahul_Kumar",
+          "text": "Does this require any prior internship experience?"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "category": "Academics",
+      "title": "Avoid Prof. Smith for Intro to Algorithms",
+      "content": "The syllabus looks easy but his exams test edge cases not covered in class. Take Prof. Johnson instead if you want to save your GPA.",
+      "urgency": "med",
+      "deadline": "Registration: Nov 1",
+      "tags": [
+        "#CS101",
+        "#CourseReg"
+      ],
+      "upvotes": 189,
+      "verified": true,
+      "author": "Junior Year IT Student",
+      "credibilityScore": 92,
+      "confirmedCount": 18,
+      "outdatedCount": 0,
+      "misleadingCount": 0,
+      "comments": [
+        {
+          "id": 1,
+          "author": "CS_Junior",
+          "text": "Completely agree, his midterms are brutal."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "category": "Scholarship",
+      "title": "First-Gen STEM Grant Application Open",
+      "content": "Not many people know about this departmental grant. It covers textbooks for the whole year. You just need a short essay about your background.",
+      "urgency": "low",
+      "deadline": "Dec 1, 2026",
+      "tags": [
+        "#Funding",
+        "#FirstGen",
+        "#STEM"
+      ],
+      "upvotes": 88,
+      "verified": false,
+      "author": "Alumni (Class of 2024)",
+      "credibilityScore": 45,
+      "confirmedCount": 3,
+      "outdatedCount": 12,
+      "misleadingCount": 8,
+      "comments": []
+    },
+    {
+      "id": 4,
+      "category": "Campus Life",
+      "title": "Free dinner and study spaces at the Student Union tonight!",
+      "content": "The Student Union is hosting an late-night study jam tonight from 8 PM to midnight. They have free pizza, coffee, and quiet study areas. Perfect if your dorm is too noisy!",
+      "urgency": "low",
+      "deadline": "Tonight: 8 PM",
+      "tags": [
+        "#CampusLife",
+        "#FreeFood",
+        "#StudyJam"
+      ],
+      "upvotes": 112,
+      "verified": true,
+      "author": "Sophomore Peer Leader",
+      "credibilityScore": 89,
+      "confirmedCount": 19,
+      "outdatedCount": 0,
+      "misleadingCount": 0,
+      "comments": [
+        {
+          "id": 1,
+          "author": "Freshie_01",
+          "text": "Is there a vegetarian option?"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "category": "Club",
+      "title": "Robotics Club info session and project showcase",
+      "content": "Looking to join a tech club? The Robotics Club is having an info session in Room 302. No prior coding experience required—they train you from scratch. Plus, you get to work on actual competition bots!",
+      "urgency": "med",
+      "deadline": "Session: Oct 20",
+      "tags": [
+        "#Clubs",
+        "#Robotics",
+        "#Tech"
+      ],
+      "upvotes": 95,
+      "verified": true,
+      "author": "Robotics Lead",
+      "credibilityScore": 95,
+      "confirmedCount": 15,
+      "outdatedCount": 1,
+      "misleadingCount": 0,
+      "comments": [
+        {
+          "id": 1,
+          "author": "Alex_ECE",
+          "text": "Can freshman join the competition team right away?"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "category": "Placement",
+      "title": "Mock Interviews with Goldman Sachs Alumni next week!",
+      "content": "Career services just launched the registration portal for mock interviews with Goldman Sachs and JPMorgan alumni. Slots are super limited, so register on Handshake today. They give brilliant resume feedback!",
+      "urgency": "high",
+      "deadline": "Register by Oct 18",
+      "tags": [
+        "#Finance",
+        "#Placement",
+        "#MockInterviews"
+      ],
+      "upvotes": 310,
+      "verified": true,
+      "author": "Placement Coordinator",
+      "credibilityScore": 98,
+      "confirmedCount": 34,
+      "outdatedCount": 0,
+      "misleadingCount": 0,
+      "comments": [
+        {
+          "id": 1,
+          "author": "Jane Doe (You)",
+          "text": "Just registered! The slots are filling up fast!"
+        },
+        {
+          "id": 2,
+          "author": "Akash Test",
+          "text": "This is an incredibly helpful tip, thanks for sharing!"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "category": "Research",
+      "title": "Undergrad Research Positions in AI Lab (Prof. Lee)",
+      "content": "Prof. Lee is looking for 2 undergraduate research assistants to help with data cleaning and model training in the NLP lab. Paid position or course credit. Send your resume and transcript to his email.",
+      "urgency": "high",
+      "deadline": "Apply by Oct 25",
+      "tags": [
+        "#Research",
+        "#AI",
+        "#NLP"
+      ],
+      "upvotes": 142,
+      "verified": false,
+      "author": "PhD Assistant (NLP Lab)",
+      "credibilityScore": 78,
+      "confirmedCount": 11,
+      "outdatedCount": 2,
+      "misleadingCount": 1,
+      "comments": []
+    }
+  ],
+  "users": [
+    {
+      "id": 1,
+      "name": "Akash Test",
+      "email": "akash@university.edu",
+      "branch": "CSE",
+      "year": "1"
+    },
+    {
+      "id": 2,
+      "name": "Jane Doe",
+      "email": "rishi@gmail.com",
+      "branch": "CSE",
+      "year": "4"
+    },
+    {
+      "id": 3,
+      "name": "Jane Doe",
+      "email": "sjauy@asgy",
+      "branch": "CSE",
+      "year": "4"
+    },
+    {
+      "id": 4,
+      "name": "Jane Doe",
+      "email": "akashsai881@gmail.com",
+      "branch": "CSE",
+      "year": "4"
+    },
+    {
+      "id": 5,
+      "name": "Jane Doe",
+      "email": "tarun@gamil.com",
+      "branch": "CSE",
+      "year": "4"
+    },
+    {
+      "id": 6,
+      "name": "Jane Doe",
+      "email": "student@university.edu",
+      "branch": "CSE",
+      "year": "4"
+    },
+    {
+      "id": 7,
+      "name": "Jane Doe",
+      "email": "gyisg@gmail.com",
+      "branch": "CSE",
+      "year": "4"
+    }
+  ],
+  "notifications": [
+    {
+      "id": 1,
+      "title": "Post Confirmed! ✅",
+      "message": "Your tip on \"Goldman Sachs Mock Interviews\" has been confirmed by 5 senior peers.",
+      "time": "2 hours ago",
+      "read": false,
+      "type": "confirm"
+    },
+    {
+      "id": 2,
+      "title": "Upcoming Deadline ⚠️",
+      "message": "Reminder: The application for \"Google STEP Program\" closes in 2 days.",
+      "time": "5 hours ago",
+      "read": false,
+      "type": "deadline"
+    },
+    {
+      "id": 3,
+      "title": "New Scholarship Alert 🎓",
+      "message": "A new scholarship \"First-Gen STEM Grant\" was posted for CSE students.",
+      "time": "1 day ago",
+      "read": true,
+      "type": "info"
+    }
+  ],
+  "reminders": {}
+}
