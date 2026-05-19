@@ -49,24 +49,28 @@ export default function Register() {
 
           <div className="form-row">
             <div className="form-group">
-              <label>University</label>
-              <input 
-                type="text" 
-                className="glass-input" 
-                placeholder="E.g., Stanford" 
-                required
-              />
+              <label>Branch</label>
+              <select className="glass-input" required defaultValue="">
+                <option value="" disabled>Select Branch</option>
+                <option value="CSE">CSE</option>
+                <option value="ECE">ECE</option>
+                <option value="EEE">EEE</option>
+                <option value="IT">IT</option>
+                <option value="AI">AI</option>
+                <option value="DS">DS</option>
+                <option value="AI&DS">AI&DS</option>
+                <option value="Civil">Civil</option>
+                <option value="Chemical">Chemical</option>
+              </select>
             </div>
             <div className="form-group">
               <label>Year</label>
               <select className="glass-input" required defaultValue="">
                 <option value="" disabled>Select Year</option>
-                <option value="freshman">Freshman</option>
-                <option value="sophomore">Sophomore</option>
-                <option value="junior">Junior</option>
-                <option value="senior">Senior</option>
-                <option value="grad">Graduate</option>
-                <option value="alumni">Alumni</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
               </select>
             </div>
           </div>

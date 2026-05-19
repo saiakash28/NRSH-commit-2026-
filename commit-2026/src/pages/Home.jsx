@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { Bell, Search, GraduationCap, CheckCircle, Clock, MapPin, Bookmark, LogOut } from 'lucide-react'
 import '../App.css'
 
@@ -17,7 +17,9 @@ const MOCK_TIPS = [
     verified: true,
     author: 'Final Year CSE Senior',
     credibilityScore: 87,
-    confirmations: 14
+    confirmedCount: 24,
+    outdatedCount: 2,
+    misleadingCount: 1
   },
   {
     id: 2,
@@ -31,7 +33,9 @@ const MOCK_TIPS = [
     verified: true,
     author: 'Junior Year IT Student',
     credibilityScore: 92,
-    confirmations: 28
+    confirmedCount: 18,
+    outdatedCount: 0,
+    misleadingCount: 0
   },
   {
     id: 3,
@@ -45,18 +49,83 @@ const MOCK_TIPS = [
     verified: false,
     author: 'Alumni (Class of 2024)',
     credibilityScore: 45,
-    confirmations: 3
+    confirmedCount: 3,
+    outdatedCount: 12,
+    misleadingCount: 8
   }
 ];
 
 export default function Home() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [tips, setTips] = useState(MOCK_TIPS);
   const navigate = useNavigate();
+  const { categoryId, urgencyId } = useParams();
+  const activeCategory = categoryId ? categoryId.toLowerCase() : 'all';
+  const activeUrgency = urgencyId ? urgencyId.toLowerCase() : 'all';
 
   const handleLogout = () => {
     localStorage.removeItem('user_authenticated');
     navigate('/login');
   };
+
+  const handleVerification = (id, type) => {
+    setTips(currentTips => 
+      currentTips.map(tip => {
+        if (tip.id === id) {
+          const prevVote = tip.userVote;
+          
+          if (prevVote === type) {
+            // Toggle off vote
+            return {
+              ...tip,
+              userVote: null,
+              confirmedCount: type === 'confirm' ? tip.confirmedCount - 1 : tip.confirmedCount,
+              outdatedCount: type === 'outdate' ? tip.outdatedCount - 1 : tip.outdatedCount,
+              misleadingCount: type === 'mislead' ? tip.misleadingCount - 1 : tip.misleadingCount,
+            };
+          } else {
+            // New vote or change vote
+            const updatedTip = {
+              ...tip,
+              userVote: type
+            };
+            
+            // Decrement old
+            if (prevVote === 'confirm') updatedTip.confirmedCount -= 1;
+            if (prevVote === 'outdate') updatedTip.outdatedCount -= 1;
+            if (prevVote === 'mislead') updatedTip.misleadingCount -= 1;
+            
+            // Increment new
+            if (type === 'confirm') updatedTip.confirmedCount += 1;
+            if (type === 'outdate') updatedTip.outdatedCount += 1;
+            if (type === 'mislead') updatedTip.misleadingCount += 1;
+
+            return updatedTip;
+          }
+        }
+        return tip;
+      })
+    );
+  };
+
+  const filteredTips = tips.filter(tip => {
+    let categoryMatch = true;
+    let urgencyMatch = true;
+
+    if (activeCategory !== 'all') {
+      const normTip = tip.category.toLowerCase().replace(/s$/, '').replace(' ', '-');
+      const normAct = activeCategory.replace(/s$/, '');
+      categoryMatch = (normTip === normAct);
+    }
+    
+    if (activeUrgency !== 'all') {
+      // "med" for medium in the mock data, ensure we match correctly
+      const normUrg = activeUrgency === 'medium' ? 'med' : activeUrgency;
+      urgencyMatch = (tip.urgency === normUrg);
+    }
+
+    return categoryMatch && urgencyMatch;
+  });
 
   return (
     <div className="app-container">
@@ -78,7 +147,9 @@ export default function Home() {
           <button className="btn-primary" onClick={() => setShowSubmitModal(true)}>
             + Add Tip
           </button>
-          <div className="user-avatar">F</div>
+          <button className="btn-icon" onClick={() => navigate('/profile')} title="View Profile" style={{ padding: 0 }}>
+            <div className="user-avatar" style={{ cursor: 'pointer' }}>F</div>
+          </button>
           <button className="btn-icon" onClick={handleLogout} title="Logout" style={{ marginLeft: '8px' }}>
             <LogOut size={20} />
           </button>
@@ -91,24 +162,24 @@ export default function Home() {
           <div className="sidebar-section">
             <h3>Category</h3>
             <ul className="filter-list">
-              <li className="active">All Categories</li>
-              <li>Internships</li>
-              <li>Academics</li>
-              <li>Scholarships</li>
-              <li>Campus Life</li>
-              <li>Club</li>
-              <li>Placement</li>
-              <li>Research</li>
+              <li className={activeCategory === 'all' ? 'active' : ''} onClick={() => navigate('/')}>All Categories</li>
+              <li className={activeCategory === 'internships' ? 'active' : ''} onClick={() => navigate('/category/internships')}>Internships</li>
+              <li className={activeCategory === 'academics' ? 'active' : ''} onClick={() => navigate('/category/academics')}>Academics</li>
+              <li className={activeCategory === 'scholarships' ? 'active' : ''} onClick={() => navigate('/category/scholarships')}>Scholarships</li>
+              <li className={activeCategory === 'campus-life' ? 'active' : ''} onClick={() => navigate('/category/campus-life')}>Campus Life</li>
+              <li className={activeCategory === 'club' ? 'active' : ''} onClick={() => navigate('/category/club')}>Club</li>
+              <li className={activeCategory === 'placement' ? 'active' : ''} onClick={() => navigate('/category/placement')}>Placement</li>
+              <li className={activeCategory === 'research' ? 'active' : ''} onClick={() => navigate('/category/research')}>Research</li>
             </ul>
           </div>
           
           <div className="sidebar-section">
             <h3>Urgency</h3>
             <ul className="filter-list">
-              <li className="active">All Urgencies</li>
-              <li>High</li>
-              <li>Medium</li>
-              <li>Low</li>
+              <li className={activeUrgency === 'all' ? 'active' : ''} onClick={() => navigate('/')}>All Urgencies</li>
+              <li className={activeUrgency === 'high' ? 'active' : ''} onClick={() => navigate('/urgency/high')}>High</li>
+              <li className={activeUrgency === 'med' ? 'active' : ''} onClick={() => navigate('/urgency/med')}>Medium</li>
+              <li className={activeUrgency === 'low' ? 'active' : ''} onClick={() => navigate('/urgency/low')}>Low</li>
             </ul>
           </div>
 
@@ -147,10 +218,11 @@ export default function Home() {
           </div>
 
           <div className="tips-container">
-            {MOCK_TIPS.map((tip, idx) => (
-              <div key={tip.id} className="tip-card glass-panel animate-fade-in" style={{animationDelay: `${idx * 0.1}s`}}>
+            {filteredTips.map((tip, idx) => (
+              <div key={tip.id} id={`post-${tip.id}`} className="tip-card glass-panel animate-fade-in" style={{animationDelay: `${idx * 0.1}s`}}>
                 <div className="tip-header">
                   <div className="tip-meta">
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 'bold' }}>#{tip.id}</span>
                     <span className="tip-category">{tip.category}</span>
                     <span className={`urgency-badge urgency-${tip.urgency}`}>
                       <Clock size={14} /> 
@@ -174,7 +246,7 @@ export default function Home() {
                       <span style={{ fontWeight: 'bold', color: tip.credibilityScore >= 80 ? 'var(--urgency-low)' : (tip.credibilityScore >= 50 ? 'var(--urgency-med)' : 'var(--urgency-high)') }}>
                         Credibility: {tip.credibilityScore}/100
                       </span>
-                      <span>• Confirmed by {tip.confirmations} students</span>
+                      <span>• Confirmed by {tip.confirmedCount} students</span>
                     </div>
                     <span className="tip-deadline" style={{ marginTop: '4px' }}>
                       <MapPin size={14} /> Deadline: {tip.deadline}
@@ -191,6 +263,42 @@ export default function Home() {
                   </button>
                   <button className="action-btn">
                     <Bookmark size={16} /> Save
+                  </button>
+                </div>
+                
+                <div className="tip-verification" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border-color)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <button 
+                    className="action-btn" 
+                    onClick={() => handleVerification(tip.id, 'confirm')} 
+                    style={{ 
+                      background: tip.userVote === 'confirm' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.1)', 
+                      color: 'var(--urgency-low)', 
+                      borderColor: tip.userVote === 'confirm' ? 'rgba(16, 185, 129, 0.6)' : 'rgba(16, 185, 129, 0.2)' 
+                    }}
+                  >
+                    ✅ Confirmed <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.confirmedCount}</span>
+                  </button>
+                  <button 
+                    className="action-btn" 
+                    onClick={() => handleVerification(tip.id, 'outdate')} 
+                    style={{ 
+                      background: tip.userVote === 'outdate' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(245, 158, 11, 0.1)', 
+                      color: 'var(--urgency-med)', 
+                      borderColor: tip.userVote === 'outdate' ? 'rgba(245, 158, 11, 0.6)' : 'rgba(245, 158, 11, 0.2)' 
+                    }}
+                  >
+                    ⚠️ Outdated <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.outdatedCount}</span>
+                  </button>
+                  <button 
+                    className="action-btn" 
+                    onClick={() => handleVerification(tip.id, 'mislead')} 
+                    style={{ 
+                      background: tip.userVote === 'mislead' ? 'rgba(239, 68, 68, 0.25)' : 'rgba(239, 68, 68, 0.1)', 
+                      color: 'var(--urgency-high)', 
+                      borderColor: tip.userVote === 'mislead' ? 'rgba(239, 68, 68, 0.6)' : 'rgba(239, 68, 68, 0.2)' 
+                    }}
+                  >
+                    ❌ Misleading <span style={{ opacity: 0.8, marginLeft: '4px', fontWeight: 'bold' }}>{tip.misleadingCount}</span>
                   </button>
                 </div>
               </div>
