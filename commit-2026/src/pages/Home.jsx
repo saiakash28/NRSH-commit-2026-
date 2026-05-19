@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Bell, Search, GraduationCap, CheckCircle, Clock, MapPin, Bookmark } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Bell, Search, GraduationCap, CheckCircle, Clock, MapPin, Bookmark, LogOut } from 'lucide-react'
 import '../App.css'
 
 // Mock Data
@@ -14,7 +15,9 @@ const MOCK_TIPS = [
     tags: ['#CS', '#Google', '#Sophomore'],
     upvotes: 245,
     verified: true,
-    author: 'Senior_Dev_99 (Verified Senior)'
+    author: 'Final Year CSE Senior',
+    credibilityScore: 87,
+    confirmations: 14
   },
   {
     id: 2,
@@ -26,7 +29,9 @@ const MOCK_TIPS = [
     tags: ['#CS101', '#CourseReg'],
     upvotes: 189,
     verified: true,
-    author: 'Anon_Owl'
+    author: 'Junior Year IT Student',
+    credibilityScore: 92,
+    confirmations: 28
   },
   {
     id: 3,
@@ -38,12 +43,20 @@ const MOCK_TIPS = [
     tags: ['#Funding', '#FirstGen', '#STEM'],
     upvotes: 88,
     verified: false,
-    author: 'Bio_Nerd_24'
+    author: 'Alumni (Class of 2024)',
+    credibilityScore: 45,
+    confirmations: 3
   }
 ];
 
 export default function Home() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem('user_authenticated');
+    navigate('/login');
+  };
 
   return (
     <div className="app-container">
@@ -66,6 +79,9 @@ export default function Home() {
             + Add Tip
           </button>
           <div className="user-avatar">F</div>
+          <button className="btn-icon" onClick={handleLogout} title="Logout" style={{ marginLeft: '8px' }}>
+            <LogOut size={20} />
+          </button>
         </div>
       </nav>
 
@@ -73,7 +89,7 @@ export default function Home() {
         {/* Sidebar */}
         <aside className="sidebar glass-panel">
           <div className="sidebar-section">
-            <h3>Filters</h3>
+            <h3>Category</h3>
             <ul className="filter-list">
               <li className="active">All Categories</li>
               <li>Internships</li>
@@ -85,6 +101,26 @@ export default function Home() {
               <li>Research</li>
             </ul>
           </div>
+          
+          <div className="sidebar-section">
+            <h3>Urgency</h3>
+            <ul className="filter-list">
+              <li className="active">All Urgencies</li>
+              <li>High</li>
+              <li>Medium</li>
+              <li>Low</li>
+            </ul>
+          </div>
+
+          <div className="sidebar-section">
+            <h3>Description</h3>
+            <ul className="filter-list">
+              <li className="active">All Descriptions</li>
+              <li>Detailed</li>
+              <li>Brief</li>
+            </ul>
+          </div>
+
           <div className="sidebar-section">
             <h3>My Tags</h3>
             <div className="tags-container">
@@ -132,9 +168,15 @@ export default function Home() {
                 <p className="tip-content">{tip.content}</p>
                 
                 <div className="tip-footer">
-                  <div className="tip-footer-left">
-                    <span className="tip-author">{tip.author}</span>
-                    <span className="tip-deadline">
+                  <div className="tip-footer-left" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '6px' }}>
+                    <span className="tip-author" style={{ color: 'var(--secondary-accent)' }}>Posted by: {tip.author}</span>
+                    <div className="tip-credibility" style={{ fontSize: '0.85rem', display: 'flex', gap: '8px', color: 'var(--text-muted)' }}>
+                      <span style={{ fontWeight: 'bold', color: tip.credibilityScore >= 80 ? 'var(--urgency-low)' : (tip.credibilityScore >= 50 ? 'var(--urgency-med)' : 'var(--urgency-high)') }}>
+                        Credibility: {tip.credibilityScore}/100
+                      </span>
+                      <span>• Confirmed by {tip.confirmations} students</span>
+                    </div>
+                    <span className="tip-deadline" style={{ marginTop: '4px' }}>
                       <MapPin size={14} /> Deadline: {tip.deadline}
                     </span>
                   </div>

@@ -8,7 +8,8 @@ export default function Login() {
   const handleLogin = (e) => {
     e.preventDefault();
     // In a real app, you would validate credentials here
-    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('user_authenticated', 'true');
+    localStorage.setItem('user_registered', 'true'); // Ensure they are marked as registered if they successfully login
     navigate('/');
   };
 

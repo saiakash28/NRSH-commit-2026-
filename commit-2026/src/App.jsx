@@ -5,16 +5,22 @@ import Register from './pages/Register';
 
 // Simple protected route wrapper
 const ProtectedRoute = ({ children }) => {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  const isAuthenticated = localStorage.getItem('user_authenticated') === 'true';
+  const hasRegistered = localStorage.getItem('user_registered') === 'true';
+  
   if (!isAuthenticated) {
-    return <Navigate to="/register" replace />;
+    if (hasRegistered) {
+      return <Navigate to="/login" replace />;
+    } else {
+      return <Navigate to="/register" replace />;
+    }
   }
   return children;
 };
 
 // Route wrapper for auth pages (redirects to home if already logged in)
 const AuthRoute = ({ children }) => {
-  const isAuthenticated = localStorage.getItem('isAuthenticated') === 'true';
+  const isAuthenticated = localStorage.getItem('user_authenticated') === 'true';
   if (isAuthenticated) {
     return <Navigate to="/" replace />;
   }

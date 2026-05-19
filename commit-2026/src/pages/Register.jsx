@@ -8,7 +8,8 @@ export default function Register() {
   const handleRegister = (e) => {
     e.preventDefault();
     // In a real app, you would create the user account here
-    localStorage.setItem('isAuthenticated', 'true');
+    localStorage.setItem('user_registered', 'true');
+    localStorage.setItem('user_authenticated', 'true');
     navigate('/');
   };
 
